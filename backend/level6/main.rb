@@ -1,7 +1,7 @@
 require "json"
 require "Date"
  # JSON Parsing
-filepath = 'backend/level5/data.json'
+filepath = 'backend/level6/data.json'
 serialized_data = File.read(filepath)
 data_hash = JSON.parse(serialized_data)
 
@@ -85,7 +85,7 @@ rentals_array.each do |items|
 end
 
 # Storing the hash into json
-filepath_result = 'backend/level5/my_result.json'
+filepath_result = 'backend/level6/my_result.json'
 File.open(filepath_result, 'wb') do |file|
   file.write(JSON.pretty_generate(output_hash))
 end
