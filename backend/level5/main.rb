@@ -1,64 +1,92 @@
-require "json"
 require "Date"
- # JSON Parsing
-filepath = 'backend/level5/data.json'
-serialized_data = File.read(filepath)
-data_hash = JSON.parse(serialized_data)
+require 'json'
+require 'active_model'
 
-# Separate cars and rentals info in data_hash for easy manipulation
-cars_array = data_hash["cars"]
-rentals_array = data_hash["rentals"]
-output_hash = {} # initialize empty hash
-output_hash["rentals"] = [] # initialize empty array as the value of the key "rentals"
-action = []
 
-# go through the rentals_array to compute pricing
-rentals_array.each do |items|
-  car_id = items["car_id"]
-  price_per_day_initial = 0
-  price_per_km = 0
-  cars_array.each do |car|
-    if car["id"] == car_id
-      price_per_day_initial = car["price_per_day"]
-      price_per_km = car["price_per_km"]
+FILE = File.read('backend/level5/data.json')
+
+class Computation
+
+  attr_accessor :data, :cars, :rentals
+  def initialize(data)
+    @data = JSON.parse(data) # It's a hash
+    @cars = @data["cars"].map { |car| Car.new(car)} # Data["cars"] array of hashes with car parameters
+    @rentals = @data["rentals"].map do |rental|
+      Rental.new(rental.merge(car: @cars.find { |c| c.id == rental["car_id"]}))
     end
   end
-  days = (Date.parse(items["end_date"]) - Date.parse(items["start_date"])).to_i + 1
-  if days == 1
-    price = (days*price_per_day_initial + items["distance"]*price_per_km).round
-  elsif days > 1 && days <= 4
-    price = (price_per_day_initial*(1 + (days-1)*0.9) + items["distance"]*price_per_km).round
-  elsif days > 4 && days <= 10
-    price = (price_per_day_initial*(1 + 3*0.9 + (days-4)*0.7) + items["distance"]*price_per_km).round
-  elsif days > 10
-    price = (price_per_day_initial*(1 + 3*0.9 + 6*0.7 + (days-10)*0.50) + items["distance"]*price_per_km).round
+
+  def process
+    rentals.map(&:price)
+    self
   end
-  if items["deductible_reduction"]
+
+  def to_json
+    JSON.pretty_generate({ rentals: rentals.map(&:rental_output) })
+  end
+
+end
+
+class Car
+  attr_accessor :id, :price_per_day, :price_per_km
+  include ActiveModel::Model
+end
+
+class Rental
+  attr_accessor :id, :car_id, :car, :start_date, :end_date, :distance, :deductible_reduction
+  include ActiveModel::Model
+
+  def price
+    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    if days == 1
+      price = (days*car.price_per_day + @distance*car.price_per_km).round
+    elsif days > 1 && days <= 4
+      price = (car.price_per_day*(1 + (days-1)*0.9) + @distance*car.price_per_km).round
+    elsif days > 4 && days <= 10
+      price = (car.price_per_day*(1 + 3*0.9 + (days-4)*0.7) + @distance*car.price_per_km).round
+    elsif days > 10
+      price = (car.price_per_day*(1 + 3*0.9 + 6*0.7 + (days-10)*0.50) + @distance*car.price_per_km).round
+    end
+    price
+  end
+
+  def commission
+    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    total_commission = self.price*0.3
+    insurance_fee = (total_commission/2).round
+    assistance_fee = days*100
+    drivy_fee = (insurance_fee - assistance_fee).round
+
+    commission = {
+          "insurance_fee": insurance_fee,
+          "assistance_fee": assistance_fee,
+          "drivy_fee": drivy_fee
+        }
+    return commission
+  end
+
+  def deductible
+    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    deductible_reduction = 0
+    if self.deductible_reduction
     deductible_reduction = days*400
   else
     deductible_reduction = 0
   end
+    deductible_reduction
+  end
 
-  total_commission = price*0.3
-  insurance_fee = (total_commission/2).round
-  assistance_fee = days*100
-  drivy_fee = (insurance_fee - assistance_fee).round
-
-  commission = {
-        "insurance_fee": insurance_fee,
-        "assistance_fee": assistance_fee,
-        "drivy_fee": drivy_fee
-      }
-
-  options = {
-    "deductible_reduction": deductible_reduction
-  }
-
-  action = [
+  def actions
+    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    total_commission = self.price*0.3
+    insurance_fee = (total_commission/2).round
+    assistance_fee = days*100
+    drivy_fee = (insurance_fee - assistance_fee).round
+    actions = [
         {
           "who": "driver",
           "type": "debit",
-          "amount": price + deductible_reduction
+          "amount": price + self.deductible
         },
         {
           "who": "owner",
@@ -78,16 +106,22 @@ rentals_array.each do |items|
         {
           "who": "drivy",
           "type": "credit",
-          "amount": drivy_fee + deductible_reduction
+          "amount": drivy_fee + self.deductible
         }
       ]
-  output_hash["rentals"] << {"id": items["id"], "actions": action } # action is an array of hash
+  end
+
+  def rental_output
+    {id: id, actions: actions}
+  end
 end
 
-# Storing the hash into json
+output = Computation.new(FILE).process.to_json
+
 filepath_result = 'backend/level5/my_result.json'
 File.open(filepath_result, 'wb') do |file|
-  file.write(JSON.pretty_generate(output_hash))
+  file.write(output)
 end
+
 
 

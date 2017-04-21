@@ -1,35 +1,75 @@
 require "json"
 require "Date"
+require 'json'
+require 'active_model'
 
-# your code
 
- # JSON Parsing
-filepath = 'backend/level1/data.json'
-serialized_data = File.read(filepath)
-data_hash = JSON.parse(serialized_data)
+FILE = File.read('backend/level1/data.json')
 
-# Separate cars and rentals info in data_hash for easy manipulation
-cars_array = data_hash["cars"]
-rentals_array = data_hash["rentals"]
-output_hash = {} # initialize empty hash
-output_hash["rentals"] = [] # initialize empty array as the value of the key "rentals"
+class Computation
 
-# go through the rentals_array to compute pricing
-rentals_array.each do |items|
-  car_id = items["car_id"]
-  price_per_day = 0
-  price_per_km = 0
-  cars_array.each do |car|
-    if car["id"] == car_id
-      price_per_day = car["price_per_day"]
-      price_per_km = car["price_per_km"]
+  attr_accessor :data, :cars, :rentals
+  def initialize(data)
+    @data = JSON.parse(data) # It's a hash
+    @cars = @data["cars"].map { |car| Car.new(car)} # Data["cars"] array of hashes with car parameters
+    @rentals = @data["rentals"].map do |rental|
+      Rental.new(rental.merge(car: @cars.find { |c| c.id == rental["car_id"]}))
     end
   end
-  price = (((Date.parse(items["end_date"]) - Date.parse(items["start_date"])).to_i + 1)* price_per_day + items["distance"]*price_per_km)
-  output_hash["rentals"] << {"id": items["id"], "price": price }
+
+  def process
+    rentals.map(&:price)
+    self
+  end
+
+  def to_json
+
+    p rentals.map(&:rental_output)
+
+    JSON.pretty_generate({ rentals: rentals.map(&:rental_output) })
+  end
+
 end
-# Storing the hash into json
+
+class Car
+  attr_accessor :id, :price_per_day, :price_per_km
+  include ActiveModel::Model
+end
+
+class Rental
+  attr_accessor :id, :car_id, :car, :start_date, :end_date, :distance
+  include ActiveModel::Model
+
+  def price
+    price = (((Date.parse(end_date) - Date.parse(start_date)).to_i + 1)* car.price_per_day + @distance*car.price_per_km)
+  end
+
+  def rental_output
+    {id: id, price: price}
+  end
+end
+
+output = Computation.new(FILE).process.to_json
+
 filepath_result = 'backend/level1/my_result.json'
 File.open(filepath_result, 'wb') do |file|
-  file.write(JSON.pretty_generate(output_hash))
+  file.write(output)
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
