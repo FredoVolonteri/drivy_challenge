@@ -7,8 +7,8 @@ require 'active_model'
 FILE = File.read('backend/level2/data.json')
 
 class Computation
-
   attr_accessor :data, :cars, :rentals
+
   def initialize(data)
     @data = JSON.parse(data) # It's a hash
     @cars = @data["cars"].map { |car| Car.new(car)} # Data["cars"] array of hashes with car parameters

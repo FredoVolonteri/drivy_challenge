@@ -7,8 +7,8 @@ require 'active_model'
 FILE = File.read('backend/level3/data.json')
 
 class Computation
-
   attr_accessor :data, :cars, :rentals
+
   def initialize(data)
     @data = JSON.parse(data) # It's a hash
     @cars = @data["cars"].map { |car| Car.new(car)} # Data["cars"] array of hashes with car parameters
@@ -37,8 +37,12 @@ class Rental
   attr_accessor :id, :car_id, :car, :start_date, :end_date, :distance
   include ActiveModel::Model
 
+  def days
+    return (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+  end
+
   def price
-    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    days = self.days
     if days == 1
       price = (days*car.price_per_day + @distance*car.price_per_km).round
     elsif days > 1 && days <= 4
@@ -52,12 +56,11 @@ class Rental
   end
 
   def commission
-    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    days = self.days
     total_commission = self.price*0.3
     insurance_fee = (total_commission/2).round
     assistance_fee = days*100
     drivy_fee = (insurance_fee - assistance_fee).round
-
     commission = {
           "insurance_fee": insurance_fee,
           "assistance_fee": assistance_fee,

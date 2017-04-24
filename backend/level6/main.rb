@@ -44,7 +44,7 @@ class Rental
   include ActiveModel::Model
 
   def price
-    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    days = self.days
     if days == 1
       price = (days*car.price_per_day + @distance*car.price_per_km).round
     elsif days > 1 && days <= 4
@@ -87,8 +87,8 @@ class Rental
   end
   def actions
     total_commission = self.price*0.3
-    insurance_fee = (total_commission/2).round
-    assistance_fee = rental.days*100
+    insurance_fee = self.insurance_fee
+    assistance_fee = self.assistance_fee
     drivy_fee = (insurance_fee - assistance_fee).round
     actions = [
         {
@@ -128,13 +128,24 @@ class RentalModification
   include ActiveModel::Model
   attr_accessor :id, :rental_id, :rental, :start_date, :end_date, :distance
 
+  def new_start_date
+    new_start_date = (start_date == nil) ? rental.start_date : start_date
+  end
 
+  def new_end_date
+    ew_end_date = (end_date == nil) ? rental.end_date : end_date
+  end
+
+  def new_distance
+    new_distance = (distance == nil) ? rental.distance : distance
+  end
+
+  def days
+    days = (Date.parse(self.new_end_date) - Date.parse(self.new_start_date)).to_i + 1
+  end
 
   def modif_price
-    new_start_date = (start_date == nil) ? rental.start_date : start_date
-    new_end_date = (end_date == nil) ? rental.end_date : end_date
-    new_distance = (distance == nil) ? rental.distance : distance
-    days = (Date.parse(new_end_date) - Date.parse(new_start_date)).to_i + 1
+    days = self.days
     if days == 1
       modif_price = (days*rental.car.price_per_day + new_distance*rental.car.price_per_km).round
     elsif days > 1 && days <= 4
@@ -148,9 +159,7 @@ class RentalModification
   end
 
   def modif_deductible
-    new_start_date = (start_date == nil) ? rental.start_date : start_date
-    new_end_date = (end_date == nil) ? rental.end_date : end_date
-    days = (Date.parse(new_end_date) - Date.parse(new_start_date)).to_i + 1
+    days = self.days
     modif_deductible_reduction = 0
     if rental.deductible_reduction
     modif_deductible_reduction = days*400
@@ -160,13 +169,22 @@ class RentalModification
       modif_deductible_reduction
   end
 
-  def modif_actions
-    new_start_date = (start_date == nil) ? rental.start_date : start_date
-    new_end_date = (end_date == nil) ? rental.end_date : end_date
-    days = (Date.parse(new_end_date) - Date.parse(new_start_date)).to_i + 1
+  def new_total_commission
     new_total_commission = self.modif_price*0.3
-    new_insurance_fee = (new_total_commission/2).round
-    new_assistance_fee = days*100
+  end
+
+  def new_insurance_fee
+    new_insurance_fee = (self.new_total_commission/2).round
+  end
+
+  def new_assistance_fee
+    new_assistance_fee = self.days*100
+  end
+  def modif_actions
+    days = self.days
+    new_total_commission = self.new_total_commission
+    new_insurance_fee = self.new_insurance_fee
+    new_assistance_fee = self.new_assistance_fee
     new_drivy_fee = (new_insurance_fee - new_assistance_fee).round
     modif_actions = [
         {

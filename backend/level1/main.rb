@@ -7,11 +7,11 @@ require 'active_model'
 FILE = File.read('backend/level1/data.json')
 
 class Computation
-
   attr_accessor :data, :cars, :rentals
+
   def initialize(data)
-    @data = JSON.parse(data) # It's a hash
-    @cars = @data["cars"].map { |car| Car.new(car)} # Data["cars"] array of hashes with car parameters
+    @data = JSON.parse(data)
+    @cars = @data["cars"].map { |car| Car.new(car)}
     @rentals = @data["rentals"].map do |rental|
       Rental.new(rental.merge(car: @cars.find { |c| c.id == rental["car_id"]}))
     end
@@ -23,12 +23,9 @@ class Computation
   end
 
   def to_json
-
     p rentals.map(&:rental_output)
-
     JSON.pretty_generate({ rentals: rentals.map(&:rental_output) })
   end
-
 end
 
 class Car

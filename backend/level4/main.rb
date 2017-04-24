@@ -36,8 +36,12 @@ class Rental
   attr_accessor :id, :car_id, :car, :start_date, :end_date, :distance, :deductible_reduction
   include ActiveModel::Model
 
+  def days
+    return (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+  end
+
   def price
-    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    days = self.days
     if days == 1
       price = (days*car.price_per_day + @distance*car.price_per_km).round
     elsif days > 1 && days <= 4
@@ -51,12 +55,11 @@ class Rental
   end
 
   def commission
-    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    days = self.days
     total_commission = self.price*0.3
     insurance_fee = (total_commission/2).round
     assistance_fee = days*100
     drivy_fee = (insurance_fee - assistance_fee).round
-
     commission = {
           "insurance_fee": insurance_fee,
           "assistance_fee": assistance_fee,
@@ -66,7 +69,7 @@ class Rental
   end
 
   def options
-    days = (Date.parse(end_date) - Date.parse(start_date)).to_i + 1
+    days = self.days
     deductible_reduction = 0
     if self.deductible_reduction
     deductible_reduction = days*400
